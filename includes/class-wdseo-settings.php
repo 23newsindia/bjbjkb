@@ -5,11 +5,26 @@ if (!defined('ABSPATH')) {
 
 class Wdseo_Settings {
     private static $tabs = array(
-        'general' => 'General',
-        'titles' => 'Titles & Meta',
-        'robots' => 'Robots Meta',
-        'social' => 'Social Meta',
-        'sitemap' => 'XML Sitemap'
+        'general' => array(
+            'title' => 'General',
+            'icon' => '⚙️'
+        ),
+        'titles' => array(
+            'title' => 'Titles & Meta',
+            'icon' => '📝'
+        ),
+        'robots' => array(
+            'title' => 'Robots Meta',
+            'icon' => '🤖'
+        ),
+        'social' => array(
+            'title' => 'Social Meta',
+            'icon' => '📱'
+        ),
+        'sitemap' => array(
+            'title' => 'XML Sitemap',
+            'icon' => '🗺️'
+        )
     );
 
     private static $frequencies = array(
@@ -39,8 +54,11 @@ class Wdseo_Settings {
     public static function enqueue_admin_assets($hook) {
         if ('settings_page_wild-dragon-seo' !== $hook) return;
 
-        // Minified CSS
-        wp_enqueue_style('wdseo-admin-style', WDSEO_PLUGIN_URL . 'assets/css/admin-style.min.css', array(), WDSEO_VERSION);
+        // Enhanced CSS
+        wp_enqueue_style('wdseo-admin-style', WDSEO_PLUGIN_URL . 'assets/css/admin-style.css', array(), WDSEO_VERSION);
+        
+        // Add custom admin JavaScript for enhanced interactions
+        wp_enqueue_script('wdseo-admin-script', WDSEO_PLUGIN_URL . 'assets/js/admin-script.js', array('jquery'), WDSEO_VERSION, true);
     }
 
     // Get setting with caching
@@ -62,13 +80,21 @@ class Wdseo_Settings {
     }
 
     public static function register_settings() {
-    // Add this ▼
-    register_setting('wdseo_settings_group', 'wdseo_enable_meta_description', array(
-        'type' => 'boolean',
-        'default' => 1 // Enabled by default
-    ));
+        // Register settings without creating sections (we'll handle display manually)
+        
+        // Title settings
+        register_setting('wdseo_settings_group', 'wdseo_enable_meta_description', array(
+            'type' => 'boolean',
+            'default' => 1
+        ));
 
-        // Batch register settings for post types and taxonomies
+        register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', array(
+            'type' => 'array',
+            'default' => array(),
+            'sanitize_callback' => array(__CLASS__, 'sanitize_remove_site_name_from_title')
+        ));
+
+        // Robots settings
         $post_types = get_post_types(array('public' => true));
         $taxonomies = get_taxonomies(array('public' => true));
         $special_pages = array('author_archives', 'user_profiles');
@@ -81,31 +107,20 @@ class Wdseo_Settings {
                 'default' => 'index,follow',
             ));
         }
- 
- 
- // Add this inside the register_settings() method
-register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', array(
-    'type' => 'array', // Stores multiple checkbox values
-    'default' => array(), // Default empty array
-    'sanitize_callback' => array(__CLASS__, 'sanitize_remove_site_name_from_title') // Optional sanitization
-));
 
-
-
-        // Register blocked URLs with validation
         register_setting('wdseo_settings_group', 'wdseo_robots_blocked_urls', array(
             'type' => 'string',
             'sanitize_callback' => array(__CLASS__, 'sanitize_textarea_input')
         ));
 
-        // Register social meta with validation
+        // Social settings
         register_setting('wdseo_settings_group', 'wdseo_twitter_site_handle', array(
             'type' => 'string',
             'default' => '@WildDragonOfficial',
             'sanitize_callback' => 'sanitize_text_field'
         ));
 
-        // Batch register sitemap settings
+        // Standard sitemap settings
         $content_types = array(
             'homepage' => array('freq' => 'daily', 'priority' => '1.0'),
             'posts' => array('freq' => 'weekly', 'priority' => '0.8'),
@@ -129,19 +144,50 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
                 'default' => $defaults['priority']
             ));
         }
+
+        // News sitemap settings
+        register_setting('wdseo_settings_group', 'wdseo_news_sitemap_enabled', array(
+            'type' => 'boolean',
+            'default' => false,
+        ));
+
+        register_setting('wdseo_settings_group', 'wdseo_news_publication_name', array(
+            'type' => 'string',
+            'default' => get_bloginfo('name'),
+            'sanitize_callback' => 'sanitize_text_field'
+        ));
+
+        register_setting('wdseo_settings_group', 'wdseo_news_publication_language', array(
+            'type' => 'string',
+            'default' => 'en',
+            'sanitize_callback' => 'sanitize_text_field'
+        ));
+
+        register_setting('wdseo_settings_group', 'wdseo_news_post_types', array(
+            'type' => 'array',
+            'default' => array('post'),
+            'sanitize_callback' => array(__CLASS__, 'sanitize_post_types_array')
+        ));
+
+        // Video sitemap settings
+        register_setting('wdseo_settings_group', 'wdseo_video_sitemap_enabled', array(
+            'type' => 'boolean',
+            'default' => false,
+        ));
     }
 
     public static function render_settings_page() {
         $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
         ?>
         <div class="wrap wdseo-settings">
-            <h1>Wild Dragon SEO Settings</h1>
+            <h1>Wild Dragon SEO</h1>
 
             <nav class="nav-tab-wrapper">
-                <?php foreach (self::$tabs as $slug => $title): ?>
+                <?php foreach (self::$tabs as $slug => $tab_data): ?>
                     <a href="<?php echo esc_url(admin_url('options-general.php?page=wild-dragon-seo&tab=' . $slug)); ?>"
                        class="nav-tab <?php echo $tab === $slug ? 'nav-tab-active' : ''; ?>">
-                        <?php echo esc_html($title); ?>
+                        <span class="wdseo-feature-icon"><?php echo $tab_data['icon']; ?></span>
+                        <?php echo esc_html($tab_data['title']); ?>
                     </a>
                 <?php endforeach; ?>
             </nav>
@@ -149,8 +195,8 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
             <form action="options.php" method="post" class="wdseo-form">
                 <?php
                 settings_fields('wdseo_settings_group');
-                do_settings_sections('wild-dragon-seo');
-
+                
+                // Only render the content for the current tab
                 switch ($tab):
                     case 'titles':
                         self::render_titles_section();
@@ -168,7 +214,7 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
                         self::render_general_section();
                 endswitch;
 
-                submit_button();
+                submit_button('Save Settings', 'primary', 'submit', false);
                 ?>
             </form>
         </div>
@@ -176,36 +222,50 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
     }
 
     public static function render_sitemap_section() {
+        echo '<div class="wdseo-section-header">🗺️ XML Sitemap Configuration</div>';
+        
+        // Standard Sitemap Settings
+        echo '<h3 style="margin: 24px 32px 16px; color: var(--wdseo-gray-800); display: flex; align-items: center; gap: 8px;">
+                <span class="wdseo-feature-icon">📄</span>
+                Standard XML Sitemap
+              </h3>';
+        
         $content_types = array(
             'homepage' => array(
                 'label' => 'Homepage',
                 'default_freq' => 'daily',
-                'default_priority' => '1.0'
+                'default_priority' => '1.0',
+                'icon' => '🏠'
             ),
             'posts' => array(
-                'label' => 'Posts',
+                'label' => 'Blog Posts',
                 'default_freq' => 'weekly',
-                'default_priority' => '0.8'
+                'default_priority' => '0.8',
+                'icon' => '📝'
             ),
             'pages' => array(
-                'label' => 'Pages',
+                'label' => 'Static Pages',
                 'default_freq' => 'monthly',
-                'default_priority' => '0.6'
+                'default_priority' => '0.6',
+                'icon' => '📄'
             ),
             'products' => array(
                 'label' => 'Products',
                 'default_freq' => 'daily',
-                'default_priority' => '0.8'
+                'default_priority' => '0.8',
+                'icon' => '🛍️'
             ),
             'product_categories' => array(
                 'label' => 'Product Categories',
                 'default_freq' => 'weekly',
-                'default_priority' => '0.7'
+                'default_priority' => '0.7',
+                'icon' => '📂'
             ),
             'post_categories' => array(
                 'label' => 'Post Categories',
                 'default_freq' => 'weekly',
-                'default_priority' => '0.7'
+                'default_priority' => '0.7',
+                'icon' => '🏷️'
             )
         );
 
@@ -217,28 +277,33 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
             $priority = get_option("wdseo_sitemap_{$type}_priority", $info['default_priority']);
 
             echo "<tr>
-                    <th scope=\"row\"><label>{$info['label']}</label></th>
+                    <th scope=\"row\">
+                        <div style=\"display: flex; align-items: center; gap: 8px;\">
+                            <span class=\"wdseo-feature-icon\">{$info['icon']}</span>
+                            {$info['label']}
+                        </div>
+                    </th>
                     <td>
                         <fieldset>
-                            <label>
+                            <label style=\"margin-bottom: 16px;\">
                                 <input type=\"checkbox\" name=\"wdseo_sitemap_{$type}_include\" value=\"1\" " . checked($include, true, false) . ">
-                                Include in Sitemap
+                                <strong>Include in Sitemap</strong>
                             </label>
-                            <br><br>
-                            <label>
-                                Update Frequency:
-                                <select name=\"wdseo_sitemap_{$type}_frequency\" class=\"regular-text\">";
+                            <br>
+                            <div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;\">
+                                <label>
+                                    <strong>Update Frequency:</strong><br>
+                                    <select name=\"wdseo_sitemap_{$type}_frequency\" class=\"regular-text\" style=\"margin-top: 4px;\">";
             
             foreach (self::$frequencies as $value => $label) {
                 echo "<option value=\"{$value}\"" . selected($frequency, $value, false) . ">{$label}</option>";
             }
 
             echo "</select>
-                            </label>
-                            <br><br>
-                            <label>
-                                Priority:
-                                <select name=\"wdseo_sitemap_{$type}_priority\" class=\"regular-text\">";
+                                </label>
+                                <label>
+                                    <strong>Priority:</strong><br>
+                                    <select name=\"wdseo_sitemap_{$type}_priority\" class=\"regular-text\" style=\"margin-top: 4px;\">";
             
             for ($i = 0.0; $i <= 1.0; $i += 0.1) {
                 $value = number_format($i, 1);
@@ -246,83 +311,307 @@ register_setting('wdseo_settings_group', 'wdseo_remove_site_name_from_title', ar
             }
 
             echo "</select>
-                            </label>
+                                </label>
+                            </div>
                         </fieldset>
                     </td>
                 </tr>";
         }
 
         echo '</tbody></table>';
+
+        // News Sitemap Settings
+        echo '<h3 style="margin: 32px 32px 16px; color: var(--wdseo-gray-800); display: flex; align-items: center; gap: 8px;">
+                <span class="wdseo-feature-icon">📰</span>
+                Google News Sitemap
+              </h3>';
+
+        $news_enabled = get_option('wdseo_news_sitemap_enabled', false);
+        $news_publication_name = get_option('wdseo_news_publication_name', get_bloginfo('name'));
+        $news_language = get_option('wdseo_news_publication_language', 'en');
+        $news_post_types = get_option('wdseo_news_post_types', array('post'));
+
+        echo '<table class="form-table" role="presentation"><tbody>';
+        
+        echo '<tr>
+                <th scope="row">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="wdseo-feature-icon">📰</span>
+                        Enable News Sitemap
+                    </div>
+                </th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="wdseo_news_sitemap_enabled" value="1" ' . checked($news_enabled, true, false) . '>
+                        <strong>Generate Google News Sitemap</strong>
+                    </label>
+                    <p class="description">Creates a specialized sitemap for news articles (last 48 hours). Requires Google News approval.</p>
+                </td>
+              </tr>';
+
+        echo '<tr>
+                <th scope="row">Publication Name</th>
+                <td>
+                    <input type="text" name="wdseo_news_publication_name" value="' . esc_attr($news_publication_name) . '" class="regular-text">
+                    <p class="description">The name of your news publication as it appears in Google News.</p>
+                </td>
+              </tr>';
+
+        echo '<tr>
+                <th scope="row">Publication Language</th>
+                <td>
+                    <select name="wdseo_news_publication_language" class="regular-text">';
+        
+        $languages = array(
+            'en' => 'English',
+            'es' => 'Spanish',
+            'fr' => 'French',
+            'de' => 'German',
+            'it' => 'Italian',
+            'pt' => 'Portuguese',
+            'ru' => 'Russian',
+            'ja' => 'Japanese',
+            'ko' => 'Korean',
+            'zh' => 'Chinese',
+            'ar' => 'Arabic',
+            'hi' => 'Hindi'
+        );
+
+        foreach ($languages as $code => $name) {
+            echo '<option value="' . esc_attr($code) . '"' . selected($news_language, $code, false) . '>' . esc_html($name) . '</option>';
+        }
+
+        echo '</select>
+                    <p class="description">ISO 639 language code for your publication.</p>
+                </td>
+              </tr>';
+
+        echo '<tr>
+                <th scope="row">News Post Types</th>
+                <td>
+                    <fieldset>';
+
+        $available_post_types = get_post_types(array('public' => true), 'objects');
+        foreach ($available_post_types as $post_type) {
+            $checked = in_array($post_type->name, $news_post_types);
+            echo '<label style="display: block; margin-bottom: 8px;">
+                    <input type="checkbox" name="wdseo_news_post_types[]" value="' . esc_attr($post_type->name) . '" ' . checked($checked, true, false) . '>
+                    ' . esc_html($post_type->label) . '
+                  </label>';
+        }
+
+        echo '      <p class="description">Select which post types should be included in the news sitemap.</p>
+                    </fieldset>
+                </td>
+              </tr>';
+
+        echo '</tbody></table>';
+
+        // Video Sitemap Settings
+        echo '<h3 style="margin: 32px 32px 16px; color: var(--wdseo-gray-800); display: flex; align-items: center; gap: 8px;">
+                <span class="wdseo-feature-icon">🎥</span>
+                Video Sitemap
+              </h3>';
+
+        $video_enabled = get_option('wdseo_video_sitemap_enabled', false);
+
+        echo '<table class="form-table" role="presentation"><tbody>';
+        
+        echo '<tr>
+                <th scope="row">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="wdseo-feature-icon">🎥</span>
+                        Enable Video Sitemap
+                    </div>
+                </th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="wdseo_video_sitemap_enabled" value="1" ' . checked($video_enabled, true, false) . '>
+                        <strong>Generate Video Sitemap</strong>
+                    </label>
+                    <p class="description">Creates a specialized sitemap for video content. Requires video metadata to be set on posts/pages.</p>
+                </td>
+              </tr>';
+
+        echo '</tbody></table>';
+
+        // Sitemap URLs
+        echo '<h3 style="margin: 32px 32px 16px; color: var(--wdseo-gray-800); display: flex; align-items: center; gap: 8px;">
+                <span class="wdseo-feature-icon">🔗</span>
+                Sitemap URLs
+              </h3>';
+
+        echo '<table class="form-table" role="presentation"><tbody>';
+        echo '<tr>
+                <th scope="row">Generated Sitemaps</th>
+                <td>
+                    <div style="display: grid; gap: 12px;">
+                        <div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-primary);">
+                            <strong>📄 Main Sitemap Index:</strong><br>
+                            <a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank" style="color: var(--wdseo-primary);">' . esc_url(home_url('/sitemap.xml')) . '</a>
+                        </div>';
+
+        if ($news_enabled) {
+            echo '<div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-warning);">
+                    <strong>📰 News Sitemap:</strong><br>
+                    <a href="' . esc_url(home_url('/news-sitemap.xml')) . '" target="_blank" style="color: var(--wdseo-primary);">' . esc_url(home_url('/news-sitemap.xml')) . '</a>
+                  </div>';
+        }
+
+        if ($video_enabled) {
+            echo '<div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-secondary);">
+                    <strong>🎥 Video Sitemap:</strong><br>
+                    <a href="' . esc_url(home_url('/video-sitemap.xml')) . '" target="_blank" style="color: var(--wdseo-primary);">' . esc_url(home_url('/video-sitemap.xml')) . '</a>
+                  </div>';
+        }
+
+        echo '      </div>
+                    <p class="description">Submit these URLs to Google Search Console for better indexing.</p>
+                </td>
+              </tr>';
+
+        echo '</tbody></table>';
     }
 
     public static function render_general_section() {
+        echo '<div class="wdseo-section-header">⚙️ General SEO Settings</div>';
         echo '<table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">General Settings</th>
+                    <th scope="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="wdseo-feature-icon">🐉</span>
+                            Plugin Status
+                        </div>
+                    </th>
                     <td>
-                        <p>Configure general SEO settings here.</p>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="wdseo-status-indicator wdseo-status-enabled">✓ Active</span>
+                            <p style="margin: 0; color: var(--wdseo-gray-600);">Wild Dragon SEO is running and optimizing your site.</p>
+                        </div>
                     </td>
-                
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="wdseo-feature-icon">📊</span>
+                            Quick Stats
+                        </div>
+                    </th>
+                    <td>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                            <div style="text-align: center; padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px;">
+                                <div style="font-size: 24px; font-weight: bold; color: var(--wdseo-primary);">' . wp_count_posts('post')->publish . '</div>
+                                <div style="font-size: 12px; color: var(--wdseo-gray-600);">Published Posts</div>
+                            </div>
+                            <div style="text-align: center; padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px;">
+                                <div style="font-size: 24px; font-weight: bold; color: var(--wdseo-secondary);">' . wp_count_posts('page')->publish . '</div>
+                                <div style="font-size: 12px; color: var(--wdseo-gray-600);">Published Pages</div>
+                            </div>';
+        
+        if (class_exists('WooCommerce')) {
+            echo '<div style="text-align: center; padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: var(--wdseo-accent);">' . wp_count_posts('product')->publish . '</div>
+                    <div style="font-size: 12px; color: var(--wdseo-gray-600);">Products</div>
+                  </div>';
+        }
+        
+        echo '      </div>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="wdseo-feature-icon">🔗</span>
+                            Quick Links
+                        </div>
+                    </th>
+                    <td>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank" class="button button-secondary">
+                                🗺️ View XML Sitemap
+                            </a>
+                            <a href="' . esc_url(admin_url('options-general.php?page=wild-dragon-seo&tab=robots')) . '" class="button button-secondary">
+                                🤖 Robots Settings
+                            </a>
+                            <a href="' . esc_url(admin_url('options-general.php?page=wild-dragon-seo&tab=social')) . '" class="button button-secondary">
+                                📱 Social Meta
+                            </a>
+                        </div>
+                    </td>
                 </tr>
               </table>';
     }
 
-    
-    
-    
     public static function render_titles_section() {
-    // Define $checked FIRST before using it
-    // With this (to handle default values):
-$checked = get_option('wdseo_remove_site_name_from_title', array());
-if (!is_array($checked)) {
-    $checked = array(); // Fallback if data is not an array
-}
-    
-    $types = array(
-        'post' => 'Posts',
-        'page' => 'Pages',
-        'product' => 'Products',
-        'product_cat' => 'Product Categories',
-        'home' => 'Home Page',
-    );
-    
-    $enable_meta_desc = get_option('wdseo_enable_meta_description', 1);
+        echo '<div class="wdseo-section-header">📝 Title & Meta Description Settings</div>';
+        
+        // Define $checked FIRST before using it
+        $checked = get_option('wdseo_remove_site_name_from_title', array());
+        if (!is_array($checked)) {
+            $checked = array(); // Fallback if data is not an array
+        }
+        
+        $types = array(
+            'post' => array('label' => 'Blog Posts', 'icon' => '📝'),
+            'page' => array('label' => 'Static Pages', 'icon' => '📄'),
+            'product' => array('label' => 'Products', 'icon' => '🛍️'),
+            'product_cat' => array('label' => 'Product Categories', 'icon' => '📂'),
+            'home' => array('label' => 'Home Page', 'icon' => '🏠'),
+        );
+        
+        $enable_meta_desc = get_option('wdseo_enable_meta_description', 1);
 
-    echo '<table class="form-table" role="presentation">';
-    echo '<tr><th scope="row">Remove Site Name From Title On:</th><td>';
+        echo '<table class="form-table" role="presentation">';
+        echo '<tr>
+                <th scope="row">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="wdseo-feature-icon">🏷️</span>
+                        Remove Site Name From Title
+                    </div>
+                </th>
+                <td>
+                    <fieldset>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">';
 
-    foreach ($types as $key => $label) {
-    echo "<label>
-            <input type=\"checkbox\" name=\"wdseo_remove_site_name_from_title[]\" value=\"$key\" " . 
-            checked(in_array($key, $checked), true, false) . ">
-            $label
-          </label><br>";
-}
+        foreach ($types as $key => $type_data) {
+            echo "<label style=\"margin-bottom: 8px;\">
+                    <input type=\"checkbox\" name=\"wdseo_remove_site_name_from_title[]\" value=\"$key\" " . 
+                    checked(in_array($key, $checked), true, false) . ">
+                    <span class=\"wdseo-feature-icon\" style=\"margin-right: 6px;\">{$type_data['icon']}</span>
+                    {$type_data['label']}
+                  </label>";
+        }
 
-    echo '</td></tr>';
-    
-    // Keep the meta description toggle ▼
-    echo '<tr>
-            <th scope="row">Meta Descriptions</th>
-            <td>
-                <label>
-                    <input type="checkbox" name="wdseo_enable_meta_description" value="1" ' . 
-                    checked($enable_meta_desc, 1, false) . '>
-                    Enable auto-generated meta descriptions
-                </label>
-                <p class="description">Uncheck to disable plugin\'s meta descriptions (use theme defaults)</p>
-            </td>
-          </tr>';
-    
-    echo '</table>';
-}
-    
-    
-    
-    
-    
+        echo '      </div>
+                        <p class="description">Choose which page types should have the site name removed from their titles.</p>
+                    </fieldset>
+                </td>
+              </tr>';
+        
+        // Keep the meta description toggle
+        echo '<tr>
+                <th scope="row">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="wdseo-feature-icon">📄</span>
+                        Meta Descriptions
+                    </div>
+                </th>
+                <td>
+                    <label style="margin-bottom: 0;">
+                        <input type="checkbox" name="wdseo_enable_meta_description" value="1" ' . 
+                        checked($enable_meta_desc, 1, false) . '>
+                        <strong>Enable auto-generated meta descriptions</strong>
+                    </label>
+                    <p class="description">Automatically generate meta descriptions for content without custom descriptions.</p>
+                </td>
+              </tr>';
+        
+        echo '</table>';
+    }
 
     public static function render_robots_section() {
+        echo '<div class="wdseo-section-header">🤖 Robots Meta & Indexing Control</div>';
+        
         $post_types = get_post_types(array('public' => true));
         $taxonomies = get_taxonomies(array('public' => true));
         $special_pages = array(
@@ -336,9 +625,19 @@ if (!is_array($checked)) {
         foreach ($post_types as $post_type) {
             $obj = get_post_type_object($post_type);
             $value = get_option("wdseo_default_robots_{$post_type}", 'index,follow');
+            
+            $icon = '📝';
+            if ($post_type === 'page') $icon = '📄';
+            if ($post_type === 'product') $icon = '🛍️';
+            if ($post_type === 'attachment') $icon = '📎';
 
             echo "<tr>
-                    <th scope=\"row\">Robots Meta - {$obj->label}</th>
+                    <th scope=\"row\">
+                        <div style=\"display: flex; align-items: center; gap: 8px;\">
+                            <span class=\"wdseo-feature-icon\">{$icon}</span>
+                            {$obj->label}
+                        </div>
+                    </th>
                     <td>";
             self::render_robots_select("wdseo_default_robots_{$post_type}", $value);
             echo "</td></tr>";
@@ -348,9 +647,17 @@ if (!is_array($checked)) {
         foreach ($taxonomies as $taxonomy) {
             $obj = get_taxonomy($taxonomy);
             $value = get_option("wdseo_default_robots_{$taxonomy}", 'index,follow');
+            
+            $icon = '🏷️';
+            if ($taxonomy === 'product_cat') $icon = '📂';
 
             echo "<tr>
-                    <th scope=\"row\">Robots Meta - {$obj->label}</th>
+                    <th scope=\"row\">
+                        <div style=\"display: flex; align-items: center; gap: 8px;\">
+                            <span class=\"wdseo-feature-icon\">{$icon}</span>
+                            {$obj->label}
+                        </div>
+                    </th>
                     <td>";
             self::render_robots_select("wdseo_default_robots_{$taxonomy}", $value);
             echo "</td></tr>";
@@ -361,7 +668,12 @@ if (!is_array($checked)) {
             $value = get_option("wdseo_default_robots_{$key}", 'index,follow');
 
             echo "<tr>
-                    <th scope=\"row\">Robots Meta - {$key}</th>
+                    <th scope=\"row\">
+                        <div style=\"display: flex; align-items: center; gap: 8px;\">
+                            <span class=\"wdseo-feature-icon\">👤</span>
+                            {$label}
+                        </div>
+                    </th>
                     <td>";
             self::render_robots_select("wdseo_default_robots_{$key}", $value);
             echo "</td></tr>";
@@ -369,12 +681,17 @@ if (!is_array($checked)) {
 
         // Blocked URLs
         echo "<tr>
-                <th scope=\"row\">Block Specific URLs</th>
+                <th scope=\"row\">
+                    <div style=\"display: flex; align-items: center; gap: 8px;\">
+                        <span class=\"wdseo-feature-icon\">🚫</span>
+                        Block Specific URLs
+                    </div>
+                </th>
                 <td>
-                    <textarea name=\"wdseo_robots_blocked_urls\" rows=\"10\" class=\"large-text code\">" . 
+                    <textarea name=\"wdseo_robots_blocked_urls\" rows=\"8\" class=\"large-text code\" placeholder=\"Enter one URL pattern per line...&#10;Example:&#10;/private/*&#10;/admin/*&#10;/checkout\">" . 
                         esc_textarea(get_option('wdseo_robots_blocked_urls', '')) . 
                     "</textarea>
-                    <p class=\"description\">Enter one URL pattern per line. Use * as wildcard.</p>
+                    <p class=\"description\">Enter one URL pattern per line. Use * as wildcard. These URLs will be marked as noindex,nofollow.</p>
                 </td>
               </tr>";
 
@@ -382,14 +699,45 @@ if (!is_array($checked)) {
     }
 
     public static function render_social_section() {
+        echo '<div class="wdseo-section-header">📱 Social Media & Open Graph Settings</div>';
+        
         $handle = get_option('wdseo_twitter_site_handle', '@WildDragonOfficial');
 
         echo '<table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Twitter Site Handle</th>
+                    <th scope="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="wdseo-feature-icon">🐦</span>
+                            Twitter Site Handle
+                        </div>
+                    </th>
                     <td>
-                        <input type="text" name="wdseo_twitter_site_handle" value="' . esc_attr($handle) . '" class="regular-text">
-                        <p class="description">Used in Twitter Card meta tags.</p>
+                        <input type="text" name="wdseo_twitter_site_handle" value="' . esc_attr($handle) . '" class="regular-text" placeholder="@YourTwitterHandle">
+                        <p class="description">Used in Twitter Card meta tags for better social sharing.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class=\"wdseo-feature-icon\">📊</span>
+                            Social Features
+                        </div>
+                    </th>
+                    <td>
+                        <div style="display: grid; gap: 12px;">
+                            <div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-success);">
+                                <strong>✓ Open Graph Tags</strong><br>
+                                <small style="color: var(--wdseo-gray-600);">Automatically generated for better Facebook sharing</small>
+                            </div>
+                            <div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-success);">
+                                <strong>✓ Twitter Cards</strong><br>
+                                <small style="color: var(--wdseo-gray-600);">Enhanced Twitter sharing with rich media</small>
+                            </div>
+                            <div style="padding: 16px; background: var(--wdseo-gray-50); border-radius: 8px; border-left: 4px solid var(--wdseo-success);">
+                                <strong>✓ Schema Markup</strong><br>
+                                <small style="color: var(--wdseo-gray-600);">Structured data for better search results</small>
+                            </div>
+                        </div>
                     </td>
                 </tr>
               </table>';
@@ -397,17 +745,22 @@ if (!is_array($checked)) {
 
     public static function render_robots_select($name, $value) {
         $options = array(
-            'index,follow' => 'Index, Follow',
-            'noindex,nofollow' => 'Noindex, Nofollow',
-            'index,nofollow' => 'Index, Nofollow',
-            'noindex,follow' => 'Noindex, Follow',
+            'index,follow' => array('label' => 'Index, Follow', 'status' => 'success'),
+            'noindex,nofollow' => array('label' => 'Noindex, Nofollow', 'status' => 'danger'),
+            'index,nofollow' => array('label' => 'Index, Nofollow', 'status' => 'warning'),
+            'noindex,follow' => array('label' => 'Noindex, Follow', 'status' => 'warning'),
         );
 
-        echo '<select name="' . esc_attr($name) . '">';
+        echo '<select name="' . esc_attr($name) . '" style="min-width: 200px;">';
 
-        foreach ($options as $val => $label) {
+        foreach ($options as $val => $option) {
             $selected = selected($value, $val, false);
-            echo '<option value="' . esc_attr($val) . '"' . $selected . '>' . esc_html($label) . '</option>';
+            $indicator = '';
+            if ($option['status'] === 'success') $indicator = '✓ ';
+            if ($option['status'] === 'danger') $indicator = '✗ ';
+            if ($option['status'] === 'warning') $indicator = '⚠ ';
+            
+            echo '<option value="' . esc_attr($val) . '"' . $selected . '>' . $indicator . esc_html($option['label']) . '</option>';
         }
 
         echo '</select>';
@@ -418,9 +771,6 @@ if (!is_array($checked)) {
         $checked = get_option("wdseo_include_{$type}_sitemap", true);
         echo "<input type=\"checkbox\" name=\"wdseo_include_{$type}_sitemap\" id=\"wdseo_include_{$type}_sitemap\" value=\"1\" " . checked($checked, true, false) . " />";
     }
-    
-    
-
 
     public static function sanitize_textarea_input($input) {
         $lines = explode("\n", $input);
@@ -435,7 +785,23 @@ if (!is_array($checked)) {
 
         return implode("\n", $cleaned);
     }
-    
+
+    public static function sanitize_post_types_array($input) {
+        if (!is_array($input)) {
+            return array();
+        }
+
+        $available_post_types = get_post_types(array('public' => true));
+        $sanitized = array();
+
+        foreach ($input as $post_type) {
+            if (in_array($post_type, $available_post_types)) {
+                $sanitized[] = sanitize_key($post_type);
+            }
+        }
+
+        return $sanitized;
+    }
     
     /**
      * Remove site name from document title parts (WordPress 4.4+)

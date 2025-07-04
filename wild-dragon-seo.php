@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Wild Dragon SEO
-Description: A powerful all-in-one SEO plugin for WordPress & WooCommerce.
+Description: A powerful all-in-one SEO plugin for WordPress & WooCommerce with advanced sitemap support.
 Version: 1.0.0
 Author: Wild Dragon Dev Team
 Text Domain: wild-dragon-seo
@@ -52,7 +52,7 @@ require_once WDSEO_PLUGIN_DIR . 'includes/class-wdseo-meta-description.php';
 require_once WDSEO_PLUGIN_DIR . 'includes/class-wdseo-settings.php';
 require_once WDSEO_PLUGIN_DIR . 'includes/class-wdseo-robots-meta.php';
 require_once WDSEO_PLUGIN_DIR . 'includes/class-wdseo-rules-engine.php';
-
+require_once WDSEO_PLUGIN_DIR . 'includes/class-wdseo-video-meta.php';
 
 // Initialize main functionality
 add_action('plugins_loaded', array('Wdseo_Image_Alt_Title', 'init'));
