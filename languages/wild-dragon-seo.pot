@@ -1,0 +1,26 @@
+# Wild Dragon SEO Translation Template
+# Copyright (C) 2025 Your Company
+# This file is distributed under the same license as the Wild Dragon SEO package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Wild Dragon SEO 1.0.0\n"
+"POT-Creation-Date: 2025-04-05 12:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HH:MM+ZZZZ\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.0\n"
+
+#. translators: Plugin name
+#: wild-dragon-seo.php
+msgid "Wild Dragon SEO"
+msgstr ""
+
+#. translators: Description
+#: wild-dragon-seo.php
+msgid "A powerful all-in-one SEO plugin for WordPress & WooCommerce."
+msgstr ""
