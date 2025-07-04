@@ -520,7 +520,7 @@ class Wdseo_Sitemap {
         }
 
         // Get publication settings - integrate with your schema system
-        $publication_name = get_option('wdseo_news_publication_name', get_option('wild_dragon_organization_name', get_bloginfo('name')));
+        $publication_name = get_option('wdseo_news_publication_name', self::get_schema_organization_name());
         $publication_language = get_option('wdseo_news_publication_language', 'en');
         $news_post_types = get_option('wdseo_news_post_types', array('post'));
 
@@ -958,13 +958,7 @@ class Wdseo_Sitemap {
         $output .= "  <priority>" . esc_html($priority) . "</priority>\n";
 
         // Add site logo if available - integrate with your schema system
-        $logo_url = get_option('wild_dragon_logo_url', '');
-        if (empty($logo_url)) {
-            $custom_logo_id = get_theme_mod('custom_logo');
-            if ($custom_logo_id) {
-                $logo_url = wp_get_attachment_image_url($custom_logo_id, 'full');
-            }
-        }
+        $logo_url = self::get_schema_logo_url();
         
         if ($logo_url) {
             $output .= "  <image:image>\n";
@@ -977,6 +971,39 @@ class Wdseo_Sitemap {
         $output .= "</url>\n";
         $output .= "</urlset>";
         return $output;
+    }
+
+    /**
+     * Helper method to get organization name from schema plugin
+     */
+    private static function get_schema_organization_name() {
+        // Try to get from your schema plugin first
+        $schema_name = get_option('wild_dragon_organization_name', '');
+        if (!empty($schema_name)) {
+            return $schema_name;
+        }
+        
+        // Fallback to site name
+        return get_bloginfo('name');
+    }
+
+    /**
+     * Helper method to get logo URL from schema plugin
+     */
+    private static function get_schema_logo_url() {
+        // Try to get from your schema plugin first
+        $schema_logo = get_option('wild_dragon_logo_url', '');
+        if (!empty($schema_logo)) {
+            return $schema_logo;
+        }
+        
+        // Fallback to custom logo
+        $custom_logo_id = get_theme_mod('custom_logo');
+        if ($custom_logo_id) {
+            return wp_get_attachment_image_url($custom_logo_id, 'full');
+        }
+        
+        return '';
     }
 
     public static function clear_sitemap_cache($post_id, $post) {
